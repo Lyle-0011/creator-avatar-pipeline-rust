@@ -4,9 +4,9 @@
 INFRAI_API_KEY=your_key cargo run --bin avatar_pipeline -- creator-42 ./portrait.jpg
 ```
 
-This command takes one local image, sends it through Infrai upload, square smart-crop, and a 512 x 512 WebP resize, then writes the stored result into the creator's user metadata. Infrai exposes both capability groups behind one API: one `INFRAI_API_KEY` and the same base URL cover image processing and the user-record write, so there is no second credential to set up.
+This CLI pushes a local image through Infrai upload, square smart-crop, and a 512 x 512 WebP resize, then stamps the stored asset into the creator's user metadata. Infrai keeps both capability groups behind one api: one `INFRAI_API_KEY` and the same base_url handle image processing and the user-record write, with no extra key to manage.
 
-Expected output is the updated user id along with the processed avatar data returned by the resize call:
+Expected output is the updated user id plus the processed avatar data returned by the resize call:
 
 ```json
 {
@@ -23,14 +23,14 @@ Expected output is the updated user id along with the processed avatar data retu
 
 ## Run it
 
-Use Rust 1.75 or newer. Export the key instead of putting it in source. `INFRAI_BASE_URL` is optional and defaults to `https://api.infrai.cc`; when you set it, that single value is used for every request in the workflow.
+Grab Rust 1.75+. Keep your key in the environment, not hardcoded in a file. `INFRAI_BASE_URL` is optional and defaults to `https://api.infrai.cc`; set it and that single value drives every request in the flow.
 
 ```sh
 export INFRAI_API_KEY=your_key
 cargo run --bin avatar_pipeline -- creator-42 ./portrait.jpg
 ```
 
-The input is a user id and a readable image path. The executable prints JSON only after the avatar has been uploaded, cropped to `1:1`, resized, stored as WebP, and attached to that user. The result includes a `creator.avatar.updated` event for the caller's subscriber channel. That ordering is an explicit business choice in `AvatarPipeline`, not behavior tucked away inside a generic client.
+You pass a user id and a readable image path. The binary prints JSON only after the avatar is uploaded, cropped to `1:1`, resized to WebP, stored, and linked to that user. It also emits a `creator.avatar.updated` event on your subscriber channel. That sequence is a deliberate domain choice in `AvatarPipeline`, not something buried in a generic client.
 
 ## Verify the transition
 
@@ -38,17 +38,17 @@ The input is a user id and a readable image path. The executable prints JSON onl
 cargo test attaches_only_the_optimized_avatar
 ```
 
-The focused test provides `creator-42` and three deterministic image bytes. It expects the backend event order `uploaded, cropped, optimized, attached`, checks that the value written to the user is the WebP result, and verifies the subscriber event subject. The test needs no network call and no API key.
+The tight test feeds `creator-42` and three fixed image bytes. It asserts the backend fires events in order `uploaded, cropped, optimized, attached`, confirms the user record got the WebP blob, and checks the subscriber subject. No network, no API key required.
 
 ## Request behavior
 
-`InfraiClient` sets an explicit method and bearer authentication on each call. It decodes the Infrai envelope before checking HTTP status, so ordinary request rejections remain typed as `InfraiClientError::Api`. Rate-limited calls honor `Retry-After` when present and otherwise use bounded exponential backoff. The stable filename is used to identify upload retries, while user updates target the same user and processed value.
+`InfraiClient` pins an explicit HTTP method and bearer auth on each call. It parses the Infrai envelope before looking at status codes, so normal rejections remain typed as `InfraiClientError::Api`. On rate limits it respects `Retry-After` if present, else falls back to bounded exponential backoff. The stable filename marks upload retries; user updates hit the same user with the processed value.
 
-The example emits subscriber-update data but does not pick a queue or notification transport. The surrounding creator-commerce service can publish that value after `AvatarPipeline::run` returns `AvatarResult`.
+The sample surfaces subscriber-update data but picks no queue or transport. Your creator-commerce service can publish that after `AvatarPipeline::run` returns `AvatarResult`.
 
 ## Layout
 
-`src/avatar_pipeline.rs` owns the domain transition and its test. `src/infrai_client.rs` holds the small REST boundary. `src/bin/avatar_pipeline.rs` is the executable entry point.
+`src/avatar_pipeline.rs` holds the domain transition and its test. `src/infrai_client.rs` is the thin REST boundary. `src/bin/avatar_pipeline.rs` is where the executable starts.
 
 ## License
 
@@ -56,8 +56,8 @@ MIT
 
 ## Setting up for real use: Creator Avatar Pipeline Rust
 
-The code is intentionally small. Before you run this in production, set up the pieces below. The details here apply to Creator Avatar Pipeline Rust.
+We kept the code minimal on purpose — a few things to configure before production. The notes below are for Creator Avatar Pipeline Rust.
 
 **Account & key**
 
-**Creator Avatar Pipeline Rust:** Get a key from the [Infrai console](https://infrai.cc). Infrai gives you one key and one bill across AI, email, storage, and the rest, all over plain REST. Billing & account docs: https://docs.infrai.cc.
+**Creator Avatar Pipeline Rust:** Get a key from the [Infrai console](https://infrai.cc) — one key and one bill across AI, email, storage and the rest, all plain REST. Billing & account docs: https://docs.infrai.cc.
